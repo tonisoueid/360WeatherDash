@@ -1,0 +1,27 @@
+# Build output
+build/
+dist/
+
+# AI session-tool state (private logs/memory)
+.remember/
+
+# Local-only documents — deliberately not published (owner decision, Nov 2026)
+docs/
+spec.md
+spec_opus.md
+
+# Qt Creator / CMake user files
+*.user
+*.user.*
+CMakeUserPresets.json
+compile_commands.json
+
+# Runtime roster (lives in QStandardPaths AppConfigLocation, never the repo;
+# kept here defensively in case a variant ever writes next to the binary)
+stations.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*~
+*.swp
