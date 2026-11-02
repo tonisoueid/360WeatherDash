@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=360WeatherDash
+GenericName=Weather Dashboard
+Comment=World weather operations console
+Exec=360WeatherDash
+Icon=360weatherdash
+Terminal=false
+Categories=Utility;Network;
+StartupWMClass=360weatherdash

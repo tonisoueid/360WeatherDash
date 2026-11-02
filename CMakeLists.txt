@@ -39,6 +39,35 @@ target_link_libraries(360WeatherDash PRIVATE Qt6::Widgets Qt6::Network)
 # GUI subsystem on Windows: no console window behind the dashboard.
 if(WIN32)
     set_target_properties(360WeatherDash PROPERTIES WIN32_EXECUTABLE TRUE)
+
+    # Embed the Explorer/taskbar icon. packaging/windows/build-win64.sh renders
+    # icon.ico from src/AppIcon.h and passes it here; plain builds without it
+    # still get the runtime window icon from main.cpp.
+    set(APP_ICON_ICO "" CACHE FILEPATH "Path to a multi-size .ico to embed in the .exe")
+    if(APP_ICON_ICO AND EXISTS "${APP_ICON_ICO}")
+        enable_language(RC)
+        set(APP_RC "${CMAKE_CURRENT_BINARY_DIR}/360WeatherDash.rc")
+        file(WRITE "${APP_RC}" "1 ICON \"${APP_ICON_ICO}\"\n")
+        target_sources(360WeatherDash PRIVATE "${APP_RC}")
+    endif()
 endif()
 
 install(TARGETS 360WeatherDash BUNDLE DESTINATION . RUNTIME DESTINATION bin)
+
+# Linux desktop integration (dock/launcher icon): `cmake --install` places the
+# launcher entry and renders the hicolor icon with the freshly built binary.
+if(UNIX AND NOT APPLE)
+    install(FILES packaging/linux/360weatherdash.desktop
+            DESTINATION share/applications)
+    install(CODE "
+        set(_dir \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/256x256/apps\")
+        file(MAKE_DIRECTORY \"\${_dir}\")
+        execute_process(
+            COMMAND \${CMAKE_COMMAND} -E env QT_QPA_PLATFORM=offscreen
+                    \"$<TARGET_FILE:360WeatherDash>\" --icon \"\${_dir}/360weatherdash.png\"
+            RESULT_VARIABLE _rc)
+        if(NOT _rc EQUAL 0)
+            message(WARNING \"could not render the 256px app icon (rc=\${_rc})\")
+        endif()
+    ")
+endif()

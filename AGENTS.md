@@ -72,6 +72,11 @@ bright-pixel spans per region instead of eyeballing. Card background is `#121820
   glibc ≥ 2.42, built on Fedora 43) behind a `360WeatherDash` launcher that sets
   `LD_LIBRARY_PATH`; `bin/qt.conf` points Qt at `../plugins`. The script smoke-tests
   the bundle (`--offline --grab`, offscreen) before archiving.
+- **App icon**: painted by `src/AppIcon.h` (no bitmap assets committed). `packaging/common/gen-icons.sh OUTDIR`
+  renders the PNG set + multi-size `icon.ico` with a host Qt harness; Windows passes the .ico via
+  `-DAPP_ICON_ICO` (CMake embeds it through an `.rc`), Linux ships hicolor PNGs + `360weatherdash.desktop`
+  + `install-desktop.sh` in the tarball (and `cmake --install` renders the 256 px icon), macOS builds its
+  own .icns. Packaging now needs host Qt 6 Gui + CMake + Ninja + python3.
 - `dist/` is build output. Windows zip must stay self-contained; macOS zip must use
   `-y` (framework symlinks are sealed by signatures — flattening breaks them).
 
