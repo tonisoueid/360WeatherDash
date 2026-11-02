@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# ----------------------------------------------------------------------------
+# Build a self-contained Linux x86_64 package of 360WeatherDash — via Docker.
+#
+#   ./packaging/linux/build-linux.sh
+#
+# Builds in a Fedora 43 container (Qt 6.10.x, same series as the Windows and
+# macOS cross-builds) and bundles the Qt libraries plus the platform/TLS
+# plugins next to the executable. Produces:
+#
+#   dist/360WeatherDash-1.0.0-linux-x86_64/      runnable folder
+#   dist/360WeatherDash-1.0.0-linux-x86_64.tar.gz  the shippable artifact
+#
+# Layout:  360WeatherDash (launcher) · bin/ (exe + qt.conf) · lib/ · plugins/
+# The launcher sets LD_LIBRARY_PATH to lib/, so no patchelf / post-link edits.
+#
+# Bundle policy: the shared-library closure is copied EXCEPT glibc and the
+# GPU/GL stack (libGL, libEGL, libdrm, libgbm, ...), which must match the host.
+# Because the bundle is built against Fedora 43's glibc, the target needs
+# glibc >= 2.42 (e.g. Fedora 43+, Ubuntu 26.04+). The archive is smoke-tested
+# in the container (offscreen --offline --grab) before it is written.
+# ----------------------------------------------------------------------------
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+VER=1.0.0
+IMAGE=360weatherdash-linux-build:latest
+NAME=360WeatherDash-$VER-linux-x86_64
+
+mkdir -p dist
+
+docker build -q -t "$IMAGE" - <<'EOF2'
+FROM fedora:43
+RUN dnf -y --setopt=install_weak_deps=False install \
+      cmake ninja-build gcc-c++ file tar gzip findutils \
+      qt6-qtbase-devel qt6-qtbase-gui qt6-qtwayland \
+      fontconfig dejavu-sans-fonts \
+ && dnf clean all
+EOF2
+
+docker run --rm \
+  -v "$PWD:/src:ro" \
+  -v "$PWD/dist:/out" \
+  "$IMAGE" bash -euxo pipefail -c '
+NAME='"$NAME"'
+D=/out/$NAME
+QTP=$(qmake6 -query QT_INSTALL_PLUGINS)
+
+cmake -S /src -B /tmp/b -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/b
+
+rm -rf "$D"
+mkdir -p "$D"/{bin,lib,plugins}
+cp /tmp/b/360WeatherDash "$D/bin/"
+strip "$D/bin/360WeatherDash"
+for p in platforms tls networkinformation styles imageformats xcbglintegrations \
+         wayland-decoration-client wayland-graphics-integration-client \
+         wayland-shell-integration iconengines; do
+  [ -d "$QTP/$p" ] && cp -r "$QTP/$p" "$D/plugins/"
+done
+printf "[Paths]\nPlugins = ../plugins\n" > "$D/bin/qt.conf"
+
+# Libraries that must come from the host (glibc, GPU stack).
+skip() { case "$(basename "$1")" in
+  ld-linux*|libc.so*|libm.so*|libdl.so*|libpthread.so*|librt.so*|libutil.so*|\
+  libresolv.so*|libnsl.so*|libanl.so*|libGL.so*|libGLX*|libGLdispatch*|libEGL.so*|\
+  libOpenGL*|libgbm*|libdrm*|libvulkan*|linux-vdso*) return 0 ;; esac; return 1; }
+
+# Fixpoint: copy the ldd closure of the exe and every bundled plugin.
+for _ in 1 2 3 4 5; do
+  new=0
+  while read -r f; do
+    while read -r lib; do
+      skip "$lib" && continue
+      if [ ! -f "$D/lib/$(basename "$lib")" ]; then
+        cp -L "$lib" "$D/lib/"; new=1
+      fi
+    done < <(ldd "$f" | sed -n "s/.*=> \(\/[^ ]*\) .*/\1/p")
+  done < <(find "$D/bin" "$D/plugins" "$D/lib" -type f \( -name "*.so*" -o -name 360WeatherDash \))
+  [ "$new" = 0 ] && break
+done
+
+# Final gate: nothing may be unresolved when only lib/ is on the path.
+for f in "$D/bin/360WeatherDash" "$D"/plugins/platforms/*.so; do
+  if LD_LIBRARY_PATH="$D/lib" ldd "$f" | grep -q "not found"; then
+    echo "UNRESOLVED in $f"; LD_LIBRARY_PATH="$D/lib" ldd "$f" | grep "not found"; exit 1
+  fi
+done
+
+cat > "$D/360WeatherDash" <<"LAUNCH"
+#!/bin/sh
+here=$(dirname "$(readlink -f "$0")")
+export LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+exec "$here/bin/360WeatherDash" "$@"
+LAUNCH
+chmod +x "$D/360WeatherDash"
+
+# Smoke test with the bundled libs/plugins only (offscreen, no network).
+QT_QPA_PLATFORM=offscreen timeout 60 "$D/360WeatherDash" --offline --grab /tmp/smoke.png
+[ -s /tmp/smoke.png ] || { echo "SMOKE TEST FAILED: no frame"; exit 1; }
+
+cd /out
+rm -f "$NAME.tar.gz"
+tar -czf "$NAME.tar.gz" "$NAME"
+du -sh "$NAME" "$NAME.tar.gz"
+'
+
+echo "OK: dist/$NAME.tar.gz (extract, then run ./$NAME/360WeatherDash)"
