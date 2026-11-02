@@ -111,7 +111,11 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
   `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, `Ctrl+E` site
   admin, `Ctrl+Q` quit.
 - **`src/AdminDialog`** — edits a copy of the roster (field caps 18/6/16 chars for
-  name/code/region); only `StationRegistry` persists. The only stylesheet user.
+  name/code/region); only `StationRegistry` persists. The only stylesheet user. Its CITY SEARCH
+  box fills name/region/lat/lon from `src/GeocodingService` (keyless Open-Meteo geocoding;
+  one query in flight, generation counter retires superseded replies; no requests under
+  `--offline`, the dialog shows an unavailable state instead). The station CODE is never
+  geocoded — it stays user-typed; manual lat/lon entry still works.
 - **Rendering** — every instrument surface is custom `QPainter` (`StationCard`,
   `widgets/TrendChart`, `widgets/Panel`, `widgets/WeatherGlyph.h`); icon artwork is
   verbatim Bootstrap Icons v1.11.3 SVG path data (MIT) converted by a hand-written

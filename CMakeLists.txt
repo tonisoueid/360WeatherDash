@@ -27,6 +27,8 @@ add_executable(360WeatherDash
     src/StationCard.cpp
     src/EventLog.h
     src/EventLog.cpp
+    src/GeocodingService.h
+    src/GeocodingService.cpp
     src/AdminDialog.h
     src/AdminDialog.cpp
     src/MainWindow.h

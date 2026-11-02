@@ -549,7 +549,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *ev)
 
 void MainWindow::openAdmin()
 {
-    AdminDialog dlg(m_registry->stations(), this);
+    AdminDialog dlg(m_registry->stations(), m_offline, this);
     if (dlg.exec() == QDialog::Accepted)
         applyAdminRoster(dlg.stations());
 }
