@@ -108,6 +108,7 @@ the same). The Windows `.exe` embeds the app icon. The icon itself is painted by
 | `1`–`9`   | Select station for analysis     |
 | `←` `→`   | Previous / next station (clamps at ends) |
 | `↑` `↓`   | Station one grid row up / down |
+| `G` `T` `L` | Expand / restore stations grid, analysis trace, event log |
 | `Ctrl+Q`  | Quit                            |
 
 Clicking any station card also selects it for the analysis trace.
