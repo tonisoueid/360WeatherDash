@@ -1,0 +1,170 @@
+# .github/workflows/release.yml
+#
+# On every merge to main: compute the next version from the latest v* tag,
+# build Linux / Windows / macOS packages, and publish them as a GitHub Release.
+#
+# Version bump rules (read from the merge commit message, which contains the PR title):
+#   default        -> patch   (1.0.3 -> 1.0.4)
+#   "[minor]"      -> minor   (1.0.3 -> 1.1.0)
+#   "[major]"      -> major   (1.0.3 -> 2.0.0)
+#   "[skip release]" -> no build, no release
+#
+# Requires: VER=${VER:-1.0.0} in packaging/linux/build-linux.sh and
+# packaging/windows/build-win64.sh (instead of the hardcoded VER=1.0.0).
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Two quick merges must not compute the same version: run releases one at a time.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    outputs:
+      ver: ${{ steps.v.outputs.ver }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # need all tags
+      - id: v
+        env:
+          MSG: ${{ github.event.head_commit.message }}   # via env, never inline (script injection)
+        run: |
+          last=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$last" ]; then
+            ver=1.0.0
+          else
+            IFS=. read -r MA MI PA <<< "${last#v}"
+            if   grep -qiF '[major]' <<< "$MSG"; then ver=$((MA+1)).0.0
+            elif grep -qiF '[minor]' <<< "$MSG"; then ver=$MA.$((MI+1)).0
+            else                                      ver=$MA.$MI.$((PA+1))
+            fi
+          fi
+          echo "ver=$ver" >> "$GITHUB_OUTPUT"
+          echo "Next version: $ver" >> "$GITHUB_STEP_SUMMARY"
+
+  linux:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host Qt for the icon renderer
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev cmake ninja-build
+      - name: Build (Docker, Fedora 43) + smoke test
+        env:
+          VER: ${{ needs.version.outputs.ver }}
+        run: packaging/linux/build-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: dist/*.tar.gz
+
+  windows:
+    needs: version
+    runs-on: ubuntu-latest      # cross-compiled with MinGW in Docker, as today
+    steps:
+      - uses: actions/checkout@v4
+      - name: Host Qt for the icon renderer
+        run: sudo apt-get update && sudo apt-get install -y qt6-base-dev cmake ninja-build
+      - name: Build (Docker, MinGW)
+        env:
+          VER: ${{ needs.version.outputs.ver }}
+        run: packaging/windows/build-win64.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+
+  macos:
+    needs: version
+    runs-on: macos-14           # Apple Silicon, real Apple hardware (no osxcross / SDK EULA issue)
+    env:
+      VER: ${{ needs.version.outputs.ver }}
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.2'     # same Qt as the cross build
+          cache: true
+      - name: Tools
+        run: |
+          brew install ninja coreutils
+          # GNU realpath -m / timeout, used by gen-icons.sh and the smoke test
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+      - name: Build
+        run: |
+          cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+                "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath,@executable_path/../Frameworks"
+          cmake --build build
+      - name: Assemble .app
+        run: |
+          APP=out/360WeatherDash.app
+          mkdir -p "$APP"/Contents/{MacOS,Resources}
+          cp build/360WeatherDash "$APP/Contents/MacOS/"
+          # icon from the app's own painter
+          packaging/common/gen-icons.sh icons
+          mkdir icon.iconset
+          for s in 16 32 128 256 512; do cp icons/icon-$s.png icon.iconset/icon_${s}x${s}.png; done
+          for s in 16 128 256; do cp icons/icon-$((s*2)).png icon.iconset/icon_${s}x${s}@2x.png; done
+          cp icons/icon-64.png icon.iconset/icon_32x32@2x.png
+          iconutil -c icns icon.iconset -o "$APP/Contents/Resources/icon.icns"
+          cat > "$APP/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CFBundleName</key><string>360WeatherDash</string>
+            <key>CFBundleDisplayName</key><string>360WeatherDash</string>
+            <key>CFBundleIdentifier</key><string>com.360weatherdash.app</string>
+            <key>CFBundleVersion</key><string>$VER</string>
+            <key>CFBundleShortVersionString</key><string>$VER</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleExecutable</key><string>360WeatherDash</string>
+            <key>CFBundleIconFile</key><string>icon</string>
+            <key>LSMinimumSystemVersion</key><string>13.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict></plist>
+          PLIST
+          # copy Qt frameworks + plugins into the bundle, THEN sign (signing must be the last edit)
+          macdeployqt "$APP"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
+      - name: Smoke test (real macOS runtime)
+        run: timeout -s KILL 90 out/360WeatherDash.app/Contents/MacOS/360WeatherDash --offline --grab smoke.png && test -s smoke.png
+      - name: Zip (keeps framework symlinks)
+        run: ditto -c -k --keepParent out/360WeatherDash.app "360WeatherDash-$VER-macos-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: 360WeatherDash-*-macos-arm64.zip
+
+  release:
+    needs: [version, linux, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write           # create tag + release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ needs.version.outputs.ver }}
+        run: |
+          gh release create "v$VER" dist/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "360WeatherDash $VER" --generate-notes
