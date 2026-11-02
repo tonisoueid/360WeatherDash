@@ -8,8 +8,8 @@ build steps or architecture change.
 
 Qt 6 / C++20 desktop weather dashboard styled as a NOC-style instrument console. One
 executable, `360WeatherDash`. Live data from the keyless Open-Meteo API. Custom-painted
-UI (no bitmap assets). Ships to **three targets** from this repo: Linux (native build),
-Windows 10/11 x64 and macOS arm64 (cross-compiled — see *Packaging*).
+UI (no bitmap assets). Ships to **three targets** from this repo: Linux (native build or
+`build-linux.sh` tarball), Windows 10/11 x64 and macOS arm64 (cross-compiled — see *Packaging*).
 
 Not under version control (no git history to consult; no tests; no linter configured).
 
@@ -55,9 +55,10 @@ bright-pixel spans per region instead of eyeballing. Card background is `#121820
 |---|---|---|
 | Windows 10/11 x64 | `packaging/windows/build-win64.sh` | `dist/360WeatherDash-1.0.0-win64.zip` (40 MB) |
 | macOS arm64 | `packaging/macos/build-macos.sh` | `dist/360WeatherDash-1.0.0-macos-arm64.zip` (24 MB) |
-| Linux | the plain cmake build above | `build/360WeatherDash` |
+| Linux x86_64 | `packaging/linux/build-linux.sh` | `dist/360WeatherDash-1.0.0-linux-x86_64.tar.gz` (44 MB) |
+| Linux (dev) | the plain cmake build above | `build/360WeatherDash` |
 
-- Both cross-builds run in Docker (Fedora 43 base; images build on first use). Zero
+- All three packaging scripts run in Docker (Fedora 43 base; images build on first use). Zero
   source changes needed for either — if a change breaks cross-compilation, the change is
   wrong, not the scripts.
 - Windows is runtime-verified under Wine (live scan 12/12 LIVE). macOS is **statically**
@@ -67,6 +68,10 @@ bright-pixel spans per region instead of eyeballing. Card background is `#121820
   (ad-hoc signed, not notarized). Do not re-add `install_name_tool` post-link edits to
   the macOS exe — that invalidates the ad-hoc code signature and macOS reports the app
   as corrupt (this shipped broken once; rpath is baked at link time for exactly this reason).
+- The Linux tarball bundles the Qt libs + plugins (glibc/GPU stack excluded; needs
+  glibc ≥ 2.42, built on Fedora 43) behind a `360WeatherDash` launcher that sets
+  `LD_LIBRARY_PATH`; `bin/qt.conf` points Qt at `../plugins`. The script smoke-tests
+  the bundle (`--offline --grab`, offscreen) before archiving.
 - `dist/` is build output. Windows zip must stay self-contained; macOS zip must use
   `-y` (framework symlinks are sealed by signatures — flattening breaks them).
 

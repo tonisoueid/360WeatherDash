@@ -75,6 +75,21 @@ Useful flags:
 ./build/360WeatherDash --help
 ```
 
+## Packaging
+
+One-liners, each run from the repo root with Docker installed (images build on first
+use). Artifacts land in `dist/` (gitignored).
+
+| Target | Command | Artifact |
+|---|---|---|
+| Linux x86_64 | `packaging/linux/build-linux.sh` | `dist/360WeatherDash-1.0.0-linux-x86_64.tar.gz` |
+| Windows 10/11 x64 | `packaging/windows/build-win64.sh` | `dist/360WeatherDash-1.0.0-win64.zip` |
+| macOS arm64 | `packaging/macos/build-macos.sh` | `dist/360WeatherDash-1.0.0-macos-arm64.zip` |
+
+The Linux tarball is self-contained (Qt libraries and plugins bundled): extract it and
+run `./360WeatherDash-1.0.0-linux-x86_64/360WeatherDash`. It is built on Fedora 43, so
+the host needs glibc ≥ 2.42. The macOS build is ad-hoc signed and not notarized.
+
 ### Hotkeys
 
 | Key       | Action                          |
