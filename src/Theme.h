@@ -47,6 +47,7 @@ inline const QColor RedBright   {0xff, 0x7b, 0x72};
 inline const QColor Cyan        {0x56, 0xd4, 0xdd}; // snow, precip volume
 inline const QColor Purple      {0xb4, 0x8c, 0xea}; // humidity, storms
 inline const QColor PurpleBright{0xd2, 0xa8, 0xff};
+inline const QColor Magenta     {0xf0, 0x6e, 0xc0}; // forecast early warnings (FCST)
 
 inline QFont sans(int px, bool bold = false, bool spaced = false)
 {

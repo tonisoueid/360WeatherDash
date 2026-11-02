@@ -32,6 +32,9 @@ pressure & status green, storms purple, critical red.
   rules — high wind, gusts, heavy precipitation, thunderstorms, snowfall,
   heat/cold, low/falling pressure. Alerts log on raise, on severity change ("raised to CRITICAL" / "lowered to WARNING") **and** on clearing
   ("…NOMINAL"), severity color-coded (INFO/WARN/CRIT).
+  **Forecast early warnings** (magenta `FCST` level) look up to 36 h ahead in the hourly forecast
+  and log the first hour crossing a threshold with its lead time (heat ≥35 °C, severe cold ≤-10 °C,
+  rain probability ≥80 %, rapid pressure drop); they log once per raise and again when cleared.
 - **Header**: white masthead over a muted subtitle, ticking UTC clock,
   outlined green chips for LINK and LIVE (dot blinks), scan progress
   (`SCAN n/12`), feed link status — chips flip to red/amber on failure.

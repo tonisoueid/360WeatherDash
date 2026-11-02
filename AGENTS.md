@@ -89,7 +89,9 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
 - **`src/StationData.h`** — shared header: data model (`Station`, `CurrentObs`,
   `HourlySeries`, `DailyEntry`, `StationData`), WMO code table (`decodeWmo`), default
   12-site roster (`stationList()`), and the watch rules (`evaluateAlerts`). To add or
-  tune an alert, edit `evaluateAlerts` here.
+  tune an alert, edit `evaluateAlerts` here. Forecast early warnings (`FC_*` keys, FCST level,
+  `Theme::Magenta`) come from `evaluateForecastAlerts`, which scans the next 36 hourly slots
+  after `nowIndex`; `MainWindow` diffs them by key only (lead-time changes don't re-log).
 - **`src/StationRegistry`** — editable roster persisted as `stations.json` in
   `QStandardPaths::AppConfigLocation` (`~/.config/360WeatherDash/` on Linux,
   `%APPDATA%` on Windows, `~/Library/Application Support/` on macOS). `setStations()`

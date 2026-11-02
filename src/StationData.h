@@ -231,3 +231,84 @@ inline QVector<Alert> evaluateAlerts(const StationData &d)
     Q_UNUSED(wx);
     return out;
 }
+
+// ----------------------------------------------------------------------------
+// Forecast early warnings — derived from the already-fetched hourly series.
+// Reports the FIRST hour in nowIndex+1 .. nowIndex+kFcHorizonH crossing a
+// threshold, with its lead time in hours. Never guesses: NaN slots are skipped,
+// and nothing is returned when nowIndex is unset or the arrays are short.
+// Conditions already active in the current obs are left to evaluateAlerts.
+// Keys are prefixed FC_ and always Sev::Info; the lead time lives only in the
+// message so callers diff on the key.
+// ----------------------------------------------------------------------------
+inline constexpr int kFcHorizonH = 36;
+
+inline QVector<Alert> evaluateForecastAlerts(const StationData &d)
+{
+    QVector<Alert> out;
+    const HourlySeries &h = d.hourly;
+    const int n = h.nowIndex;
+    if (n < 0)
+        return out;
+    const CurrentObs &c = d.current;
+    const auto hours = [](int k) { return k == 1 ? QStringLiteral("1 hour") : QStringLiteral("%1 hours").arg(k); };
+    const auto add = [&](const QString &key, const QString &msg) {
+        out.push_back({Alert::Sev::Info, key, msg});
+    };
+
+    // Temperature (heat / severe cold) — mirrors the current-obs WARN thresholds.
+    if (h.tempC.size() > n) {
+        const int last = qMin(n + kFcHorizonH, int(h.tempC.size()) - 1);
+        bool heat = !std::isnan(c.tempC) && c.tempC >= 35;    // already active -> no warning
+        bool cold = !std::isnan(c.tempC) && c.tempC <= -10;
+        for (int i = n + 1; i <= last && !(heat && cold); ++i) {
+            const double t = h.tempC[i];
+            if (std::isnan(t))
+                continue;
+            if (!heat && t >= 35) {
+                heat = true;
+                add(QStringLiteral("FC_HEAT"),
+                    QStringLiteral("Heat above 35°C expected in %1").arg(hours(i - n)));
+            }
+            if (!cold && t <= -10) {
+                cold = true;
+                add(QStringLiteral("FC_COLD"),
+                    QStringLiteral("Severe cold below -10°C expected in %1").arg(hours(i - n)));
+            }
+        }
+    }
+
+    // Heavy rain: high precipitation probability, unless it is already raining hard.
+    if (h.precipProb.size() > n && !(!std::isnan(c.precipMm) && c.precipMm > 1.0)) {
+        const int last = qMin(n + kFcHorizonH, int(h.precipProb.size()) - 1);
+        for (int i = n + 1; i <= last; ++i) {
+            const double p = h.precipProb[i];
+            if (!std::isnan(p) && p >= 80) {
+                add(QStringLiteral("FC_RAIN"),
+                    QStringLiteral("Heavy rain likely within %1 (%2%)").arg(hours(i - n)).arg(qRound(p)));
+                break;
+            }
+        }
+    }
+
+    // Rapid pressure drop (pressure_msl): >= 4 hPa over 3 h, same rule as PTREND.
+    // Both ends of the 3 h window must lie in the forecast; skipped if already falling.
+    if (h.pressHpa.size() > n) {
+        const double now = d.pressureTrend3h();
+        if (std::isnan(now) || now > -4.0) {
+            const int last = qMin(n + kFcHorizonH, int(h.pressHpa.size()) - 1);
+            for (int i = n + 3; i <= last; ++i) {
+                const double a = h.pressHpa[i - 3], b = h.pressHpa[i];
+                if (std::isnan(a) || std::isnan(b))
+                    continue;
+                if (b - a <= -4.0) {
+                    add(QStringLiteral("FC_PTREND"),
+                        QStringLiteral("Rapid pressure drop (%1 hPa/3h) expected in %2")
+                            .arg(b - a, 0, 'f', 1).arg(hours(i - n)));
+                    break;
+                }
+            }
+        }
+    }
+    return out;
+}
