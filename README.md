@@ -88,7 +88,10 @@ use). Artifacts land in `dist/` (gitignored).
 
 The Linux tarball is self-contained (Qt libraries and plugins bundled): extract it and
 run `./360WeatherDash-1.0.0-linux-x86_64/360WeatherDash`. It is built on Fedora 43, so
-the host needs glibc ≥ 2.42. The macOS build is ad-hoc signed and not notarized.
+the host needs glibc ≥ 2.42. Run `./360WeatherDash-1.0.0-linux-x86_64/install-desktop.sh` once to
+add the launcher entry and app icon to your dock/app menu (a plain `cmake --install` does
+the same). The Windows `.exe` embeds the app icon. The icon itself is painted by
+`src/AppIcon.h`; the packaging scripts render it via `packaging/common/gen-icons.sh`. The macOS build is ad-hoc signed and not notarized.
 
 ### Hotkeys
 

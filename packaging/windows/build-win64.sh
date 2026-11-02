@@ -29,6 +29,11 @@ cd "$(dirname "$0")/../.."
 VER=1.0.0
 IMAGE=360weatherdash-win-cross:latest
 
+# Taskbar/Explorer icon: rendered on the host from the app's own AppIcon painter.
+ICONS=$(mktemp -d)
+trap 'rm -rf "$ICONS"' EXIT
+packaging/common/gen-icons.sh "$ICONS"
+
 docker build -q -t "$IMAGE" - <<'EOF'
 FROM fedora:43
 RUN dnf -y --setopt=install_weak_deps=False install \
@@ -39,12 +44,14 @@ EOF
 docker run --rm \
   -v "$PWD:/src:ro" \
   -v "$PWD/dist:/out" \
+  -v "$ICONS:/icons:ro" \
   "$IMAGE" bash -euxo pipefail -c '
 SYS=/usr/x86_64-w64-mingw32/sys-root/mingw
 D=/out/360WeatherDash-'"$VER"'-win64
 
 cmake -S /src -B /tmp/b -GNinja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_TOOLCHAIN_FILE=/usr/share/mingw/toolchain-mingw64.cmake
+      -DCMAKE_TOOLCHAIN_FILE=/usr/share/mingw/toolchain-mingw64.cmake \
+      -DAPP_ICON_ICO=/icons/icon.ico
 cmake --build /tmp/b
 
 rm -rf "$D"

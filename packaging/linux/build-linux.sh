@@ -12,6 +12,7 @@
 #   dist/360WeatherDash-1.0.0-linux-x86_64.tar.gz  the shippable artifact
 #
 # Layout:  360WeatherDash (launcher) · bin/ (exe + qt.conf) · lib/ · plugins/
+#          share/ (hicolor icons + .desktop) · install-desktop.sh (dock icon)
 # The launcher sets LD_LIBRARY_PATH to lib/, so no patchelf / post-link edits.
 #
 # Bundle policy: the shared-library closure is copied EXCEPT glibc and the
@@ -29,6 +30,11 @@ NAME=360WeatherDash-$VER-linux-x86_64
 
 mkdir -p dist
 
+# Launcher/dock icons: rendered on the host from the app's own AppIcon painter.
+ICONS=$(mktemp -d)
+trap 'rm -rf "$ICONS"' EXIT
+packaging/common/gen-icons.sh "$ICONS"
+
 docker build -q -t "$IMAGE" - <<'EOF2'
 FROM fedora:43
 RUN dnf -y --setopt=install_weak_deps=False install \
@@ -41,6 +47,7 @@ EOF2
 docker run --rm \
   -v "$PWD:/src:ro" \
   -v "$PWD/dist:/out" \
+  -v "$ICONS:/icons:ro" \
   "$IMAGE" bash -euxo pipefail -c '
 NAME='"$NAME"'
 D=/out/$NAME
@@ -94,6 +101,31 @@ export LD_LIBRARY_PATH="$here/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec "$here/bin/360WeatherDash" "$@"
 LAUNCH
 chmod +x "$D/360WeatherDash"
+
+# Desktop integration: hicolor icons + launcher entry, installed per-user by
+# install-desktop.sh (the .desktop Exec path is absolute, so it is rewritten
+# at install time to wherever the folder was extracted).
+for px in 16 24 32 48 64 128 256 512; do
+  mkdir -p "$D/share/icons/hicolor/${px}x${px}/apps"
+  cp /icons/icon-$px.png "$D/share/icons/hicolor/${px}x${px}/apps/360weatherdash.png"
+done
+mkdir -p "$D/share/applications"
+cp /src/packaging/linux/360weatherdash.desktop "$D/share/applications/"
+cat > "$D/install-desktop.sh" <<"INST"
+#!/bin/sh
+# Install the launcher entry and icons for the current user (dock/app menu).
+set -e
+here=$(dirname "$(readlink -f "$0")")
+data=${XDG_DATA_HOME:-$HOME/.local/share}
+mkdir -p "$data/applications"
+cp -r "$here/share/icons" "$data/"
+sed "s|^Exec=.*|Exec=$here/360WeatherDash|" \
+  "$here/share/applications/360weatherdash.desktop" > "$data/applications/360weatherdash.desktop"
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -t "$data/icons/hicolor" || true
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q "$data/applications" || true
+echo "Installed 360WeatherDash launcher entry in $data"
+INST
+chmod +x "$D/install-desktop.sh"
 
 # Smoke test with the bundled libs/plugins only (offscreen, no network).
 QT_QPA_PLATFORM=offscreen timeout 60 "$D/360WeatherDash" --offline --grab /tmp/smoke.png
