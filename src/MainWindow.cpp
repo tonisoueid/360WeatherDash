@@ -86,6 +86,8 @@ MainWindow::MainWindow(bool offline, QWidget *parent)
     QScrollArea *scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setFocusPolicy(Qt::NoFocus);   // arrows must reach MainWindow::keyPressEvent, not scroll the area
+    scroll->viewport()->setFocusPolicy(Qt::NoFocus);
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setStyleSheet(QStringLiteral(
         "QScrollArea { background: transparent; }"
@@ -260,7 +262,7 @@ QWidget *MainWindow::buildStatusBar()
     m_statusLabel->setPalette(pal);
     lay->addWidget(m_statusLabel);
     lay->addStretch(1);
-    QLabel *hint = new QLabel(QStringLiteral("R rescan · 1–9 select site · Ctrl+E site admin · Ctrl+Q quit"));
+    QLabel *hint = new QLabel(QStringLiteral("R rescan · 1–9 / ←→↑↓ select site · Ctrl+E site admin · Ctrl+Q quit"));
     hint->setFont(Theme::sans(11));
     pal = hint->palette();
     pal.setColor(QPalette::WindowText, Theme::TextFaint);
@@ -635,6 +637,28 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
     } else if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9
                && (e->key() - Qt::Key_0) <= m_cards.size()) {
         onCardClicked(e->key() - Qt::Key_0 - 1);
+    } else if (!(e->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
+               && (e->key() == Qt::Key_Left || e->key() == Qt::Key_Right
+                   || e->key() == Qt::Key_Up || e->key() == Qt::Key_Down)) {
+        // Arrow navigation: Left/Right = previous/next station, Up/Down = one
+        // grid row back/forward. Clamps at the ends (no wrap). Index and roster
+        // size are read now, never cached across stationsReconfigured.
+        const int n = m_cards.size();
+        if (n > 0) {
+            int step = 1;
+            if (e->key() == Qt::Key_Up || e->key() == Qt::Key_Down)
+                step = qMax(1, m_gridCols);
+            if (e->key() == Qt::Key_Left || e->key() == Qt::Key_Up)
+                step = -step;
+            const int target = m_selected < 0 ? (step > 0 ? 0 : n - 1)
+                                              : qBound(0, m_selected + step, n - 1);
+            if (target != m_selected) {
+                onCardClicked(target);
+                m_gridScroll->ensureWidgetVisible(m_cards[target]);
+            }
+        }
+        e->accept();
+        return;
     } else if (e->key() == Qt::Key_Q && e->modifiers() & Qt::ControlModifier) {
         close();
     }

@@ -104,7 +104,7 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
   interval, edit **only** `kRefreshSecs` (both countdown arm sites read it).
 - **`src/MainWindow`** — owns timers; diffs `evaluateAlerts` results between samples so
   the event log records raise **and** clear ("…NOMINAL") events. Hotkeys in
-  `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, `Ctrl+E` site
+  `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, arrow keys move selection (←/→ ±1, ↑/↓ ±one grid row, clamped, no wrap; scroll area is `NoFocus` so arrows reach the window), `Ctrl+E` site
   admin, `Ctrl+Q` quit.
 - **`src/AdminDialog`** — edits a copy of the roster (field caps 18/6/16 chars for
   name/code/region); only `StationRegistry` persists. The only stylesheet user.
