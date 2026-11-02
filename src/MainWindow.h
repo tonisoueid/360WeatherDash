@@ -4,6 +4,7 @@
 #include "WeatherService.h"
 
 #include <QMainWindow>
+#include <QHash>
 #include <QSet>
 #include <QVector>
 
@@ -84,7 +85,7 @@ private:
     SectionFocus m_focus = SectionFocus::None;
     int m_gridCols = 2;
     QVector<StationCard *> m_cards;
-    QVector<QSet<QString>> m_activeAlerts;
+    QVector<QHash<QString, Alert::Sev>> m_activeAlerts;   // per station: rule key -> last severity
     QVector<bool> m_announcedOnline;
     EventLog *m_log = nullptr;
     TrendChart *m_scope = nullptr;
