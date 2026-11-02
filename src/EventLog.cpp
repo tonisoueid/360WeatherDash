@@ -8,6 +8,10 @@ EventLog::EventLog(QWidget *parent)
     : QPlainTextEdit(parent)
 {
     setReadOnly(true);
+    // Arrow keys must reach MainWindow::keyPressEvent (station navigation), not scroll the log.
+    // Wheel and scroll-bar dragging still work without focus.
+    setFocusPolicy(Qt::NoFocus);
+    viewport()->setFocusPolicy(Qt::NoFocus);
     setMaximumBlockCount(300);
     setLineWrapMode(QPlainTextEdit::NoWrap);
     setFont(Theme::sans(12));

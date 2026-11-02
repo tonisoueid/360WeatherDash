@@ -221,6 +221,7 @@ QWidget *MainWindow::buildHeader()
     lay->addWidget(sub);
 
     m_adminBtn = new QPushButton(QStringLiteral("SITE ADMIN"));
+    m_adminBtn->setFocusPolicy(Qt::NoFocus);   // a focused button would turn arrow keys into focus traversal
     m_adminBtn->setCursor(Qt::PointingHandCursor);
     m_adminBtn->setFont(Theme::sans(11, true));
     m_adminBtn->setStyleSheet(adminBtnStyle());
