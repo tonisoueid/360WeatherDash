@@ -1,5 +1,6 @@
 #pragma once
 
+#include "GeocodingService.h"
 #include "StationData.h"
 
 #include <QDialog>
@@ -7,6 +8,7 @@
 
 class QLabel;
 class QLineEdit;
+class QListWidget;
 class QPushButton;
 class QTableWidget;
 
@@ -22,7 +24,8 @@ class AdminDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit AdminDialog(const QVector<Station> &stations, QWidget *parent = nullptr);
+    explicit AdminDialog(const QVector<Station> &stations, bool offline = false,
+                         QWidget *parent = nullptr);
 
     QVector<Station> stations() const { return m_stations; }
 
@@ -34,6 +37,10 @@ private slots:
     void onMoveDown();
     void onResetDefaults();
     void onFormReturn();
+    void onCitySearch();
+    void onCityResults(const QVector<GeoResult> &results);
+    void onCityError(const QString &msg);
+    void onCityPicked(int row);
     void onSave();
 
 private:
@@ -44,6 +51,7 @@ private:
     void flashError(const QString &msg);
     void updateButtons();
     void applyStyleSheet();
+    void setCityStatus(const QString &msg, bool isError);
 
     QVector<Station> m_stations;
     QTableWidget *m_table = nullptr;
@@ -53,6 +61,12 @@ private:
     QLineEdit *m_lat = nullptr;
     QLineEdit *m_lon = nullptr;
     QLabel *m_error = nullptr;
+    GeocodingService *m_geo = nullptr;
+    QVector<GeoResult> m_cityResults;
+    QLineEdit *m_citySearch = nullptr;
+    QPushButton *m_cityBtn = nullptr;
+    QLabel *m_cityStatus = nullptr;
+    QListWidget *m_cityList = nullptr;
     QLabel *m_count = nullptr;
     QPushButton *m_addBtn = nullptr;
     QPushButton *m_updateBtn = nullptr;

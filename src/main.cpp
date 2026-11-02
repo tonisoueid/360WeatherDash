@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
         // Exercise the site-admin dialog end to end: render it as opened,
         // drive a real add + save through its widgets (same slots the
         // buttons use), then render the reconfigured console.
-        auto *dlg = new AdminDialog(win.registry()->stations(), &win);
+        auto *dlg = new AdminDialog(win.registry()->stations(), win.offline(), &win);
         dlg->show();
         int rc = 0;
         const auto grabTo = [&rc](QWidget *w, const QString &path) {

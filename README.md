@@ -52,6 +52,10 @@ pressure & status green, storms purple, critical red.
   growing data age.
 - **Link-down drill**: run with `--offline` to see the failure semantics
   without touching the network.
+- **City search in Site Admin**: type a city name to look it up via the Open-Meteo
+  geocoding API, pick the right match (e.g. Nantes, France) and name, region and
+  coordinates are filled in; you supply the station code. Manual lat/lon entry
+  still works, and search is unavailable under `--offline`.
 
 ## Data source
 

@@ -36,6 +36,8 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(bool offline, QWidget *parent = nullptr);
 
+    bool offline() const { return m_offline; }
+
     bool firstScanDone() const { return m_firstScanDone; }
     StationRegistry *registry() const { return m_registry; }
 

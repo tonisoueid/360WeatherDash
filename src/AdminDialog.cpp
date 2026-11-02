@@ -6,6 +6,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QTableWidget>
@@ -54,13 +55,13 @@ QString countChipStyle()
 
 } // namespace
 
-AdminDialog::AdminDialog(const QVector<Station> &stations, QWidget *parent)
-    : QDialog(parent), m_stations(stations)
+AdminDialog::AdminDialog(const QVector<Station> &stations, bool offline, QWidget *parent)
+    : QDialog(parent), m_stations(stations), m_geo(new GeocodingService(offline, this))
 {
     setWindowTitle(QStringLiteral("360WeatherDash — Site Administration"));
     setModal(true);
-    setMinimumSize(880, 560);
-    resize(920, 600);
+    setMinimumSize(880, 700);
+    resize(920, 750);
 
     applyStyleSheet();
 
@@ -158,6 +159,53 @@ AdminDialog::AdminDialog(const QVector<Station> &stations, QWidget *parent)
         connect(e, &QLineEdit::returnPressed, this, &AdminDialog::onFormReturn);
         return e;
     };
+
+    // ---- city search (fills name / region / lat / lon) ------------------
+    flay->addWidget(mkCaption(QStringLiteral("CITY SEARCH")));
+    auto *searchRow = new QHBoxLayout;
+    searchRow->setSpacing(6);
+    m_citySearch = new QLineEdit;
+    m_citySearch->setObjectName(QStringLiteral("citySearchEdit"));
+    m_citySearch->setFont(Theme::sans(11));
+    m_citySearch->setPlaceholderText(QStringLiteral("e.g. Nantes"));
+    m_citySearch->setFrame(false);
+    searchRow->addWidget(m_citySearch, 1);
+    m_cityBtn = new QPushButton(QStringLiteral("SEARCH"));
+    m_cityBtn->setObjectName(QStringLiteral("citySearchButton"));
+    m_cityBtn->setFont(Theme::sans(11, true));
+    m_cityBtn->setCursor(Qt::PointingHandCursor);
+    m_cityBtn->setProperty("accent", QStringLiteral("blue"));
+    m_cityBtn->setStyleSheet(QStringLiteral("padding:6px 10px;"));
+    searchRow->addWidget(m_cityBtn);
+    flay->addLayout(searchRow);
+    m_cityStatus = new QLabel;
+    m_cityStatus->setObjectName(QStringLiteral("cityStatusLabel"));
+    m_cityStatus->setFont(Theme::sans(10, true));
+    m_cityStatus->setWordWrap(true);
+    m_cityStatus->setFixedHeight(30);
+    flay->addWidget(m_cityStatus);
+    m_cityList = new QListWidget;
+    m_cityList->setObjectName(QStringLiteral("cityResultList"));
+    m_cityList->setFont(Theme::sans(10));
+    m_cityList->setFixedHeight(84);
+    m_cityList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_cityList->setTextElideMode(Qt::ElideRight);
+    flay->addWidget(m_cityList);
+    if (m_geo->offline()) {
+        m_citySearch->setEnabled(false);
+        m_cityBtn->setEnabled(false);
+        setCityStatus(QStringLiteral("SEARCH UNAVAILABLE OFFLINE — ENTER COORDINATES MANUALLY"), true);
+    } else {
+        setCityStatus(QStringLiteral("SEARCH A CITY TO FILL NAME, REGION, LAT, LON"), false);
+    }
+    connect(m_citySearch, &QLineEdit::returnPressed, this, &AdminDialog::onCitySearch);
+    connect(m_cityBtn, &QPushButton::clicked, this, &AdminDialog::onCitySearch);
+    connect(m_geo, &GeocodingService::resultsReady, this, &AdminDialog::onCityResults);
+    connect(m_geo, &GeocodingService::searchFailed, this, &AdminDialog::onCityError);
+    connect(m_cityList, &QListWidget::itemClicked, this,
+            [this](QListWidgetItem *) { onCityPicked(m_cityList->currentRow()); });
+    connect(m_cityList, &QListWidget::itemActivated, this,
+            [this](QListWidgetItem *) { onCityPicked(m_cityList->currentRow()); });
 
     flay->addWidget(mkCaption(QStringLiteral("ENTRY FORM")));
     flay->addWidget(mkCaption(QStringLiteral("NAME")));
@@ -279,6 +327,11 @@ void AdminDialog::applyStyleSheet()
         "QLineEdit { background: %2; border: 1px solid %3; border-radius: 6px;"
         "  padding: 6px 8px; color: %6; selection-background-color: %10; }"
         "QLineEdit:focus { border: 1px solid %10; }"
+        "QListWidget { background: %2; border: 1px solid %3; border-radius: 6px;"
+        "  color: %5; outline: none; }"
+        "QListWidget::item { padding: 3px 6px; }"
+        "QListWidget::item:hover { background: rgba(88,166,255,0.10); }"
+        "QListWidget::item:selected { background: rgba(88,166,255,0.16); color: %6; }"
         "%11"
         "QMessageBox { background: %1; }"
         "QMessageBox QLabel { color: %5; }"
@@ -459,6 +512,74 @@ void AdminDialog::onFormReturn()
         onUpdate();
     else
         onAdd();
+}
+
+void AdminDialog::setCityStatus(const QString &msg, bool isError)
+{
+    QPalette p = m_cityStatus->palette();
+    p.setColor(QPalette::WindowText, isError ? Theme::Amber : Theme::TextMuted);
+    m_cityStatus->setPalette(p);
+    m_cityStatus->setText(msg);
+}
+
+void AdminDialog::onCitySearch()
+{
+    if (m_geo->offline())
+        return;
+    m_cityList->clear();
+    m_cityResults.clear();
+    setCityStatus(QStringLiteral("SEARCHING…"), false);
+    m_geo->search(m_citySearch->text());
+}
+
+void AdminDialog::onCityResults(const QVector<GeoResult> &results)
+{
+    m_cityList->clear();
+    m_cityResults = results;
+    if (results.isEmpty()) {
+        setCityStatus(QStringLiteral("NO MATCHING CITIES FOUND"), true);
+        return;
+    }
+    for (const GeoResult &r : results) {
+        auto *it = new QListWidgetItem(r.label());
+        it->setToolTip(QStringLiteral("%1, %2  (%3, %4)")
+                           .arg(r.label(), r.countryCode,
+                                QString::number(r.lat, 'f', 2), QString::number(r.lon, 'f', 2)));
+        m_cityList->addItem(it);
+    }
+    setCityStatus(QStringLiteral("%1 MATCH%2 — CLICK ONE TO FILL THE FORM")
+                      .arg(results.size()).arg(results.size() == 1 ? "" : "ES"), false);
+}
+
+void AdminDialog::onCityError(const QString &msg)
+{
+    m_cityList->clear();
+    m_cityResults.clear();
+    setCityStatus(msg, true);
+}
+
+void AdminDialog::onCityPicked(int row)
+{
+    if (row < 0 || row >= m_cityResults.size())
+        return;
+    const GeoResult &r = m_cityResults[row];
+    if (!std::isfinite(r.lat) || !std::isfinite(r.lon))
+        return;                             // never fill from missing coordinates
+    const QString name = r.name.trimmed().toUpper();
+    const QString regionSrc = r.admin1.isEmpty() ? r.country : r.admin1;
+    const QString region = regionSrc.trimmed().toUpper();
+    m_name->setText(name.left(kNameMaxLen));
+    m_region->setText(region.left(kRegionMaxLen));
+    m_lat->setText(QString::number(r.lat, 'f', 2));
+    m_lon->setText(QString::number(r.lon, 'f', 2));
+    // Clear the code so Enter can't silently overwrite the selected row, and
+    // the user supplies the (non-geocoded) station code.
+    m_code->clear();
+    m_error->clear();
+    const bool cut = name.size() > kNameMaxLen || region.size() > kRegionMaxLen;
+    setCityStatus(cut ? QStringLiteral("FILLED (NAME/REGION SHORTENED) — ENTER A CODE, THEN ADD SITE")
+                      : QStringLiteral("FILLED — ENTER A CODE, THEN ADD SITE"), false);
+    m_code->setFocus();
 }
 
 void AdminDialog::onSave()
