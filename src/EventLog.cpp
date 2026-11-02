@@ -12,8 +12,14 @@ EventLog::EventLog(QWidget *parent)
     setLineWrapMode(QPlainTextEdit::NoWrap);
     setFont(Theme::sans(12));
     setStyleSheet(QStringLiteral(
-        "QPlainTextEdit { background: %1; color: %2; border: none; selection-background-color: %3; }")
-        .arg(Theme::BgDeep.name(), Theme::TextSoft.name(), Theme::BorderHi.name()));
+        "QPlainTextEdit { background: %1; color: %2; border: none; selection-background-color: %3; }"
+        "QScrollBar:vertical { background: %1; width: 8px; margin: 2px; }"
+        "QScrollBar::handle:vertical { background: %4; border-radius: 4px; min-height: 20px; }"
+        "QScrollBar:horizontal { background: %1; height: 8px; margin: 2px; }"
+        "QScrollBar::handle:horizontal { background: %4; border-radius: 4px; min-width: 20px; }"
+        "QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; }"
+        "QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }")
+        .arg(Theme::BgDeep.name(), Theme::TextSoft.name(), Theme::BorderHi.name(), Theme::Border.name()));
 }
 
 QString EventLog::utcStamp()
