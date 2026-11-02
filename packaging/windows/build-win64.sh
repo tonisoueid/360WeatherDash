@@ -26,7 +26,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-VER=1.0.0
+VER=${VER:-1.0.0}
 IMAGE=360weatherdash-win-cross:latest
 
 # Taskbar/Explorer icon: rendered on the host from the app's own AppIcon painter.

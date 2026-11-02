@@ -24,7 +24,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-VER=1.0.0
+VER=${VER:-1.0.0}
 IMAGE=360weatherdash-linux-build:latest
 NAME=360WeatherDash-$VER-linux-x86_64
 
