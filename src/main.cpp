@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QGuiApplication>
 #include <QLineEdit>
+#include <QPalette>
 #include <QPushButton>
 #include <QTimer>
 #include <QWidget>
@@ -16,6 +17,29 @@ int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
     app.setFont(Theme::sans(12));
+    // Fusion honours QPalette on every platform, so the window shell and any
+    // unstyled widget follow the dark theme instead of the system palette.
+    QApplication::setStyle(QStringLiteral("Fusion"));
+    QPalette pal;
+    pal.setColor(QPalette::Window, Theme::Bg);
+    pal.setColor(QPalette::WindowText, Theme::Text);
+    pal.setColor(QPalette::Base, Theme::BgDeep);
+    pal.setColor(QPalette::AlternateBase, Theme::PanelBg);
+    pal.setColor(QPalette::Text, Theme::TextSoft);
+    pal.setColor(QPalette::Button, Theme::PanelBgHi);
+    pal.setColor(QPalette::ButtonText, Theme::Text);
+    pal.setColor(QPalette::ToolTipBase, Theme::PanelBgHi);
+    pal.setColor(QPalette::ToolTipText, Theme::Text);
+    pal.setColor(QPalette::PlaceholderText, Theme::TextFaint);
+    pal.setColor(QPalette::Highlight, Theme::BorderHi);
+    pal.setColor(QPalette::HighlightedText, Theme::Text);
+    pal.setColor(QPalette::Mid, Theme::Border);
+    pal.setColor(QPalette::Dark, Theme::BgDeep);
+    pal.setColor(QPalette::Light, Theme::BorderHi);
+    pal.setColor(QPalette::Disabled, QPalette::Text, Theme::TextFaint);
+    pal.setColor(QPalette::Disabled, QPalette::ButtonText, Theme::TextFaint);
+    pal.setColor(QPalette::Disabled, QPalette::WindowText, Theme::TextFaint);
+    QApplication::setPalette(pal);
     QApplication::setApplicationName(QStringLiteral("360WeatherDash"));
     QApplication::setApplicationVersion(QStringLiteral("1.0.0"));
     QApplication::setWindowIcon(AppIcon::icon());
