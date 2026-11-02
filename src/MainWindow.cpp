@@ -108,6 +108,7 @@ MainWindow::MainWindow(bool offline, QWidget *parent)
     m_body->setStretchFactor(0, 11);
 
     m_gridBtn = new ExpandButton;
+    m_gridBtn->setShortcutHint(QStringLiteral("G"));
     m_gridBtn->setObjectName(QStringLiteral("gridExpandBtn"));
     m_gridPanel->setCornerWidget(m_gridBtn);
     connect(m_gridBtn, &ExpandButton::toggled, this, [this](bool on) {
@@ -127,6 +128,7 @@ MainWindow::MainWindow(bool offline, QWidget *parent)
     m_scopePanel->contentLayout()->addWidget(m_scope);
     rightLay->addWidget(m_scopePanel, 5);
     m_traceBtn = new ExpandButton;
+    m_traceBtn->setShortcutHint(QStringLiteral("T"));
     m_traceBtn->setObjectName(QStringLiteral("traceExpandBtn"));
     m_scopePanel->setCornerWidget(m_traceBtn);
     connect(m_traceBtn, &ExpandButton::toggled, this, [this](bool on) {
@@ -140,6 +142,7 @@ MainWindow::MainWindow(bool offline, QWidget *parent)
     m_logPanel->contentLayout()->addWidget(m_log);
     rightLay->addWidget(m_logPanel, 3);
     m_logBtn = new ExpandButton;
+    m_logBtn->setShortcutHint(QStringLiteral("L"));
     m_logBtn->setObjectName(QStringLiteral("logExpandBtn"));
     m_logPanel->setCornerWidget(m_logBtn);
     connect(m_logBtn, &ExpandButton::toggled, this, [this](bool on) {
@@ -263,7 +266,7 @@ QWidget *MainWindow::buildStatusBar()
     m_statusLabel->setPalette(pal);
     lay->addWidget(m_statusLabel);
     lay->addStretch(1);
-    QLabel *hint = new QLabel(QStringLiteral("R rescan · 1–9 / ←→↑↓ select site · Ctrl+E site admin · Ctrl+Q quit"));
+    QLabel *hint = new QLabel(QStringLiteral("R rescan · 1–9 / ←→↑↓ select site · G grid · T trace · L log · Ctrl+E site admin · Ctrl+Q quit"));
     hint->setFont(Theme::sans(11));
     pal = hint->palette();
     pal.setColor(QPalette::WindowText, Theme::TextFaint);
@@ -674,6 +677,15 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
                    QStringLiteral("Manual rescan requested by operator"));
         m_eventCount = m_eventCount + 1;
         m_service->rescan();
+    } else if (!(e->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier))
+               && (e->key() == Qt::Key_G || e->key() == Qt::Key_T || e->key() == Qt::Key_L)) {
+        // Section toggles mirror the corner +/- buttons: press again to restore.
+        const SectionFocus want = e->key() == Qt::Key_G   ? SectionFocus::Grid
+                                  : e->key() == Qt::Key_T ? SectionFocus::Trace
+                                                          : SectionFocus::Log;
+        setSectionFocus(m_focus == want ? SectionFocus::None : want);
+        e->accept();
+        return;
     } else if (e->key() == Qt::Key_E && e->modifiers() & Qt::ControlModifier) {
         openAdmin();
     } else if (e->key() >= Qt::Key_1 && e->key() <= Qt::Key_9

@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPointF>
+#include <QString>
 #include <QWidget>
 
 // Small caption-corner control that blows its panel up to fill the whole
@@ -24,7 +25,14 @@ public:
         setAutoFillBackground(false);
         setCursor(Qt::PointingHandCursor);
         setFixedSize(26, 26);
-        setToolTip(QStringLiteral("Expand to full view"));
+        updateToolTip();
+    }
+
+    // Keyboard shortcut shown in the tool tip, e.g. "G".
+    void setShortcutHint(const QString &key)
+    {
+        m_hint = key;
+        updateToolTip();
     }
 
     bool expanded() const { return m_expanded; }
@@ -36,8 +44,7 @@ public:
         if (m_expanded == on)
             return;
         m_expanded = on;
-        setToolTip(on ? QStringLiteral("Restore panel size")
-                      : QStringLiteral("Expand to full view"));
+        updateToolTip();
         update();
     }
 
@@ -79,6 +86,16 @@ protected:
     void leaveEvent(QEvent *) override { m_hover = false; update(); }
 
 private:
+    void updateToolTip()
+    {
+        QString t = m_expanded ? QStringLiteral("Restore panel size")
+                               : QStringLiteral("Expand to full view");
+        if (!m_hint.isEmpty())
+            t += QStringLiteral(" (%1)").arg(m_hint);
+        setToolTip(t);
+    }
+
+    QString m_hint;
     bool m_expanded = false;
     bool m_hover = false;
 };

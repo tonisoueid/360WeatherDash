@@ -108,7 +108,7 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
   the event log records raise **and** clear ("…NOMINAL") events. Hotkeys in
   `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, arrow keys move selection (←/→ ±1, ↑/↓ ±one grid row, clamped, no wrap; scroll area, event log and SITE ADMIN button are all `NoFocus` so arrows always reach the window — keep any new main-window widget `NoFocus` too), `Ctrl+E` site
   the event log records raise, severity change ("…raised to CRITICAL" / "…lowered to WARNING") **and** clear ("…NOMINAL") events. Hotkeys in
-  `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, `Ctrl+E` site
+  `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, `G`/`T`/`L` toggle grid/trace/log expand (same as the corner ExpandButtons), `Ctrl+E` site
   admin, `Ctrl+Q` quit.
 - **`src/AdminDialog`** — edits a copy of the roster (field caps 18/6/16 chars for
   name/code/region); only `StationRegistry` persists. The only stylesheet user. Its CITY SEARCH
