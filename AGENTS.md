@@ -105,6 +105,8 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
   downgrade a site to Stale/Error but keep the last good sample. To change the sweep
   interval, edit **only** `kRefreshSecs` (both countdown arm sites read it).
 - **`src/MainWindow`** — owns timers; diffs `evaluateAlerts` results between samples so
+  the event log records raise **and** clear ("…NOMINAL") events. Hotkeys in
+  `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, arrow keys move selection (←/→ ±1, ↑/↓ ±one grid row, clamped, no wrap; scroll area is `NoFocus` so arrows reach the window), `Ctrl+E` site
   the event log records raise, severity change ("…raised to CRITICAL" / "…lowered to WARNING") **and** clear ("…NOMINAL") events. Hotkeys in
   `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, `Ctrl+E` site
   admin, `Ctrl+Q` quit.

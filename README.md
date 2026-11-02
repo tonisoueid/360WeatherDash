@@ -102,6 +102,8 @@ the same). The Windows `.exe` embeds the app icon. The icon itself is painted by
 |-----------|---------------------------------|
 | `R`       | Manual rescan                   |
 | `1`–`9`   | Select station for analysis     |
+| `←` `→`   | Previous / next station (clamps at ends) |
+| `↑` `↓`   | Station one grid row up / down |
 | `Ctrl+Q`  | Quit                            |
 
 Clicking any station card also selects it for the analysis trace.
