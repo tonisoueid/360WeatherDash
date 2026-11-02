@@ -37,6 +37,7 @@ void EventLog::log(const QString &level, const QString &source, const QString &m
     if (level == QLatin1String("INFO")) levelC = Theme::Blue;
     else if (level == QLatin1String("WARN")) levelC = Theme::Amber;
     else if (level == QLatin1String("CRIT")) levelC = Theme::Red;
+    else if (level == QLatin1String("FCST")) levelC = Theme::Magenta;
 
     const QString stamp = utcStamp();
     const QString src = (source + nbsp).leftJustified(14, nbsp);

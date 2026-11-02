@@ -89,7 +89,9 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
 - **`src/StationData.h`** — shared header: data model (`Station`, `CurrentObs`,
   `HourlySeries`, `DailyEntry`, `StationData`), WMO code table (`decodeWmo`), default
   12-site roster (`stationList()`), and the watch rules (`evaluateAlerts`). To add or
-  tune an alert, edit `evaluateAlerts` here.
+  tune an alert, edit `evaluateAlerts` here. Forecast early warnings (`FC_*` keys, FCST level,
+  `Theme::Magenta`) come from `evaluateForecastAlerts`, which scans the next 36 hourly slots
+  after `nowIndex`; `MainWindow` diffs them by key only (lead-time changes don't re-log).
 - **`src/StationRegistry`** — editable roster persisted as `stations.json` in
   `QStandardPaths::AppConfigLocation` (`~/.config/360WeatherDash/` on Linux,
   `%APPDATA%` on Windows, `~/Library/Application Support/` on macOS). `setStations()`
@@ -105,6 +107,8 @@ Data flows one way: `StationRegistry` (roster) → `WeatherService` (polling) �
 - **`src/MainWindow`** — owns timers; diffs `evaluateAlerts` results between samples so
   the event log records raise **and** clear ("…NOMINAL") events. Hotkeys in
   `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, arrow keys move selection (←/→ ±1, ↑/↓ ±one grid row, clamped, no wrap; scroll area is `NoFocus` so arrows reach the window), `Ctrl+E` site
+  the event log records raise, severity change ("…raised to CRITICAL" / "…lowered to WARNING") **and** clear ("…NOMINAL") events. Hotkeys in
+  `keyPressEvent`: `R` rescan (disabled offline), `1`–`9` select site, `Ctrl+E` site
   admin, `Ctrl+Q` quit.
 - **`src/AdminDialog`** — edits a copy of the roster (field caps 18/6/16 chars for
   name/code/region); only `StationRegistry` persists. The only stylesheet user.

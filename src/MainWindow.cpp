@@ -490,7 +490,8 @@ void MainWindow::rebuildStationGrid()
     m_selected = -1;
     relayoutStationCards();
 
-    m_activeAlerts = QVector<QSet<QString>>(m_service->stationCount());     // watch rules re-armed
+    m_activeAlerts = QVector<QHash<QString, Alert::Sev>>(m_service->stationCount());     // watch rules re-armed
+    m_activeForecast = QVector<QSet<QString>>(m_service->stationCount());
     m_announcedOnline.resize(m_service->stationCount());
     for (int i = 0; i < m_service->stationCount(); ++i)
         m_announcedOnline[i] = m_service->data(i).valid();   // don't re-announce carried-over sites
@@ -600,28 +601,68 @@ void MainWindow::runAlertRules(int idx)
         return;
 
     const QVector<Alert> current = evaluateAlerts(d);
-    QSet<QString> currentKeys;
+    QHash<QString, Alert::Sev> currentSev;
     for (const Alert &a : current)
-        currentKeys.insert(a.key);
+        currentSev.insert(a.key, a.sev);
 
-    const QSet<QString> &previous = m_activeAlerts[idx];
+    const auto sevColor = [](Alert::Sev s) {
+        return (s == Alert::Sev::Crit) ? Theme::Red
+               : (s == Alert::Sev::Warn) ? Theme::Amber
+                                         : Theme::Blue;
+    };
+    const auto sevName = [](Alert::Sev s) {
+        return (s == Alert::Sev::Crit) ? QStringLiteral("CRITICAL")
+               : (s == Alert::Sev::Warn) ? QStringLiteral("WARNING")
+                                         : QStringLiteral("INFO");
+    };
+
+    const QHash<QString, Alert::Sev> previous = m_activeAlerts[idx];
     for (const Alert &a : current) {
-        if (!previous.contains(a.key)) {
-            const QColor c = (a.sev == Alert::Sev::Crit) ? Theme::Red
-                             : (a.sev == Alert::Sev::Warn) ? Theme::Amber
-                                                           : Theme::Blue;
-            m_log->log(QString::fromLatin1(sevLabel(a.sev)), d.station.code, a.message.toLower(), c);
+        const auto it = previous.constFind(a.key);
+        if (it == previous.constEnd()) {
+            m_log->log(QString::fromLatin1(sevLabel(a.sev)), d.station.code, a.message.toLower(),
+                       sevColor(a.sev));
+            m_eventCount = m_eventCount + 1;
+        } else if (it.value() != a.sev) {
+            // Same rule still active, severity moved: log escalation / de-escalation.
+            const bool raised = a.sev > it.value();
+            m_log->log(QString::fromLatin1(sevLabel(a.sev)), d.station.code,
+                       QStringLiteral("%1 alert %2 to %3: %4")
+                           .arg(a.key.toLower(), raised ? QStringLiteral("raised")
+                                                        : QStringLiteral("lowered"),
+                                sevName(a.sev), a.message.toLower()),
+                       sevColor(a.sev));
             m_eventCount = m_eventCount + 1;
         }
     }
-    for (const QString &old : previous) {
-        if (!currentKeys.contains(old)) {
+    for (auto it = previous.constBegin(); it != previous.constEnd(); ++it) {
+        if (!currentSev.contains(it.key())) {
             m_log->log(QStringLiteral("INFO"), d.station.code,
-                       QStringLiteral("%1 nominal").arg(old.toLower()), Theme::Green);
+                       QStringLiteral("%1 nominal").arg(it.key().toLower()), Theme::Green);
             m_eventCount = m_eventCount + 1;
         }
     }
-    m_activeAlerts[idx] = currentKeys;
+    m_activeAlerts[idx] = currentSev;
+
+    // Forecast early warnings: diff on the key only, so a changing lead time
+    // does not re-log every sweep.
+    const QVector<Alert> fc = evaluateForecastAlerts(d);
+    QSet<QString> fcKeys;
+    for (const Alert &a : fc) {
+        fcKeys.insert(a.key);
+        if (!m_activeForecast[idx].contains(a.key)) {
+            m_log->log(QStringLiteral("FCST"), d.station.code, a.message.toLower(), Theme::Magenta);
+            m_eventCount = m_eventCount + 1;
+        }
+    }
+    for (const QString &k : std::as_const(m_activeForecast[idx])) {
+        if (!fcKeys.contains(k)) {
+            m_log->log(QStringLiteral("FCST"), d.station.code,
+                       QStringLiteral("%1 cleared").arg(k.toLower()), Theme::Magenta);
+            m_eventCount = m_eventCount + 1;
+        }
+    }
+    m_activeForecast[idx] = fcKeys;
     m_logPanel->setValue(QStringLiteral("%1 EVENTS").arg(m_eventCount), Theme::TextMuted);
 }
 
