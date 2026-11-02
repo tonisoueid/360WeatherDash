@@ -86,6 +86,7 @@ private:
     int m_gridCols = 2;
     QVector<StationCard *> m_cards;
     QVector<QHash<QString, Alert::Sev>> m_activeAlerts;   // per station: rule key -> last severity
+    QVector<QSet<QString>> m_activeForecast;              // per station: active FC_* keys
     QVector<bool> m_announcedOnline;
     EventLog *m_log = nullptr;
     TrendChart *m_scope = nullptr;

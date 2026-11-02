@@ -489,6 +489,7 @@ void MainWindow::rebuildStationGrid()
     relayoutStationCards();
 
     m_activeAlerts = QVector<QHash<QString, Alert::Sev>>(m_service->stationCount());     // watch rules re-armed
+    m_activeForecast = QVector<QSet<QString>>(m_service->stationCount());
     m_announcedOnline.resize(m_service->stationCount());
     for (int i = 0; i < m_service->stationCount(); ++i)
         m_announcedOnline[i] = m_service->data(i).valid();   // don't re-announce carried-over sites
@@ -640,6 +641,26 @@ void MainWindow::runAlertRules(int idx)
         }
     }
     m_activeAlerts[idx] = currentSev;
+
+    // Forecast early warnings: diff on the key only, so a changing lead time
+    // does not re-log every sweep.
+    const QVector<Alert> fc = evaluateForecastAlerts(d);
+    QSet<QString> fcKeys;
+    for (const Alert &a : fc) {
+        fcKeys.insert(a.key);
+        if (!m_activeForecast[idx].contains(a.key)) {
+            m_log->log(QStringLiteral("FCST"), d.station.code, a.message.toLower(), Theme::Magenta);
+            m_eventCount = m_eventCount + 1;
+        }
+    }
+    for (const QString &k : std::as_const(m_activeForecast[idx])) {
+        if (!fcKeys.contains(k)) {
+            m_log->log(QStringLiteral("FCST"), d.station.code,
+                       QStringLiteral("%1 cleared").arg(k.toLower()), Theme::Magenta);
+            m_eventCount = m_eventCount + 1;
+        }
+    }
+    m_activeForecast[idx] = fcKeys;
     m_logPanel->setValue(QStringLiteral("%1 EVENTS").arg(m_eventCount), Theme::TextMuted);
 }
 
