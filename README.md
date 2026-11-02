@@ -30,7 +30,7 @@ pressure & status green, storms purple, critical red.
   selected site's current temperature.
 - **Event log**: timestamped (UTC) NOC log with raise/clear watch
   rules — high wind, gusts, heavy precipitation, thunderstorms, snowfall,
-  heat/cold, low/falling pressure. Alerts log on raise **and** on clearing
+  heat/cold, low/falling pressure. Alerts log on raise, on severity change ("raised to CRITICAL" / "lowered to WARNING") **and** on clearing
   ("…NOMINAL"), severity color-coded (INFO/WARN/CRIT).
 - **Header**: white masthead over a muted subtitle, ticking UTC clock,
   outlined green chips for LINK and LIVE (dot blinks), scan progress
